@@ -6,6 +6,7 @@ setup(
     py_modules=["cit"],
     install_requires=[
         "click>=7.0",
+        "msgpack>=1.1",
         "cryptography>=3.0"
     ],
     entry_points={
