@@ -1,17 +1,17 @@
-#Usage & Highlights
+# Usage & Highlights
 
-##Install Requirements
+## Install Requirements
 
 ```
 pip install -r requirements.txt
 ```
 
-##Run Tests
+## Run Tests
 ```
 pytest -v test_cit.py
 ```
 
-##Install
+## Install
 (in editable mode or normal)
 
 ```
@@ -24,23 +24,23 @@ or
 pip install .
 ```
 
-##View Help
+## View Help
 
 ```
 ./cit.py --help
 ```
 
 You should see the subcommands:
-	•	create-rsa
-	•	create-ec
-	•	create-dsa
-	•	encrypt
-	•	decrypt
-	•	encrypt-file
-	•	decrypt-file
+* create-rsa
+* create-ec
+* create-dsa
+* encrypt
+* decrypt
+* encrypt-file
+* decrypt-file
 
-#Generating Keys (Short & Insecure)
-##RSA
+# Generating Keys (Short & Insecure)
+## RSA
 (default 2048 bits):
 
 ```
@@ -48,20 +48,20 @@ You should see the subcommands:
 ```
 Prints Base64-encoded PEM keys for private/public.
 
-##EC
+## EC
 (default SECP256R1):
 ```
 ./cit.py create-ec
 ```
 
-##DSA
+## DSA
 (default 2048 bits):
 ```
 ./cit.py create-dsa
 ```
 
-#Encrypt / Decrypt (Strings)
-##Encrypt a String:
+# Encrypt / Decrypt (Strings)
+## Encrypt a String:
 
 ```
 ./cit.py encrypt \
@@ -71,7 +71,7 @@ Prints Base64-encoded PEM keys for private/public.
 
 Outputs Base64 ciphertext (a single line).
 
-##Decrypt a String:
+## Decrypt a String:
 ```
 ./cit.py decrypt \
   --private-key "<BASE64_PEM_PRIVATE_KEY>" \
@@ -85,8 +85,8 @@ Under the hood:
 * EC uses an ephemeral ECDH to derive an AES-256-GCM key.
 * DSA uses ephemeral Diffie-Hellman (non-standard usage) to derive an AES-256-GCM key.
 
-#Encrypt / Decrypt (Files)
-##Encrypt a File:
+# Encrypt / Decrypt (Files)
+## Encrypt a File:
 
 ```
 ./cit.py encrypt-file \
@@ -97,7 +97,7 @@ Under the hood:
 * Reads secret.txt.
 * Outputs Base64 ciphertext to secret.enc.
 
-##Decrypt a File:
+## Decrypt a File:
 
 ```
 ./cit.py decrypt-file \

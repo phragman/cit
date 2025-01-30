@@ -21,22 +21,22 @@ def extract_keys(output: str):
 
         === RSA 2048-BIT KEY PAIR ===
 
-        Private Key (Base64 PEM):
+        Private Key (Base64):
 
         LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBL...
         ...
-        Public Key (Base64 PEM):
+        Public Key (Base64):
 
         LS0tLS1CRUdJTiBSU0EgUFVCTElDIEtF...
         ...
     """
     # Regex to capture lines between the markers
     priv_key_pattern = re.compile(
-        r"Private Key \(Base64 PEM\):\s+(.*?)\s+Public Key \(Base64 PEM\):",
+        r"Private Key \(Base64\):\s+(.*?)\s+Public Key \(Base64\):",
         re.DOTALL,
     )
     pub_key_pattern = re.compile(
-        r"Public Key \(Base64 PEM\):\s+(.*)$",
+        r"Public Key \(Base64\):\s+(.*)$",
         re.DOTALL,
     )
 

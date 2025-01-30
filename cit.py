@@ -16,6 +16,17 @@ from cryptography.hazmat.primitives.asymmetric import (
     padding
 )
 
+defaultKeyEncoding = serialization.Encoding.DER
+
+def key_encoding_str():
+    if defaultKeyEncoding == serialization.Encoding.DER:
+        return "DER"
+    elif defaultKeyEncoding == serialization.Encoding.PEM:
+        return "PEM"
+    else:
+        return "UNK"
+
+
 ###############################################################################
 #                           SERIALIZATION FUNCTIONS
 ###############################################################################
@@ -46,27 +57,59 @@ def deserialize_from_bytes(packed_data):
 #                           KEY GENERATION FUNCTIONS
 ###############################################################################
 
-def serialize_private_key_to_b64_pem(private_key) -> str:
+def serialize_private_key_to_b64(private_key) -> str:
     """
-    Serialize a private key to PEM (unencrypted) and then Base64-encode it.
+    Serialize a private key to DER/PEM (unencrypted) and then Base64-encode it.
     """
-    private_pem = private_key.private_bytes(
-        encoding=serialization.Encoding.PEM,
+    private_der = private_key.private_bytes(
+        encoding=defaultKeyEncoding,
         format=serialization.PrivateFormat.TraditionalOpenSSL,
         encryption_algorithm=serialization.NoEncryption(),
     )
-    return base64.b64encode(private_pem).decode("utf-8")
+    return base64.b64encode(private_der).decode("utf-8")
 
 
-def serialize_public_key_to_b64_pem(public_key) -> str:
+def serialize_public_key_to_b64(public_key) -> str:
     """
-    Serialize a public key to PEM and then Base64-encode it.
+    Serialize a public key to DER/PEM and then Base64-encode it.
     """
-    public_pem = public_key.public_bytes(
-        encoding=serialization.Encoding.PEM,
+    public_der = public_key.public_bytes(
+        encoding=defaultKeyEncoding,
         format=serialization.PublicFormat.SubjectPublicKeyInfo,
     )
-    return base64.b64encode(public_pem).decode("utf-8")
+    return base64.b64encode(public_der).decode("utf-8")
+
+
+def load_public_key(public_key_encoded: bytes):
+    """
+    Load encoded public key from DER/PEM to public_key structure
+    """
+    if defaultKeyEncoding == serialization.Encoding.DER:
+        return serialization.load_der_public_key(
+            public_key_encoded, backend=default_backend()
+        )
+    elif defaultKeyEncoding == serialization.Encoding.PEM:
+        return serialization.load_pem_public_key(
+            public_key_encoded, backend=default_backend()
+        )
+    else:
+        raise ValueError(f"Invalid defaultKeyEncoding: {defaultKeyEncoding}")
+
+
+def load_private_key(private_key_encoded: bytes):
+    """
+    Load encoded private key from DER/PEM to private_key structure
+    """
+    if defaultKeyEncoding == serialization.Encoding.DER:
+        return serialization.load_der_private_key(
+            private_key_encoded, password=None, backend=default_backend()
+        )
+    elif defaultKeyEncoding == serialization.Encoding.PEM:
+        return serialization.load_pem_private_key(
+            private_key_encoded, password=None, backend=default_backend()
+        )
+    else:
+        raise ValueError(f"Invalid defaultKeyEncoding: {defaultKeyEncoding}")
 
 
 def generate_rsa_key_pair(bits=2048):
@@ -209,14 +252,14 @@ def ephemeral_ec_encrypt(public_key, plaintext_bytes: bytes) -> bytes:
     iv = os.urandom(12)
     ciphertext = aesgcm.encrypt(iv, plaintext_bytes, None)
 
-    eph_pub_pem = ephemeral_private_key.public_key().public_bytes(
-        encoding=serialization.Encoding.PEM,
+    eph_pub_encoded = ephemeral_private_key.public_key().public_bytes(
+        encoding=defaultKeyEncoding,
         format=serialization.PublicFormat.SubjectPublicKeyInfo
     )
 
     combined = [
         "ec",
-        eph_pub_pem,
+        eph_pub_encoded,
         iv,
         ciphertext
     ]
@@ -229,15 +272,13 @@ def ephemeral_ec_decrypt(private_key, blob: bytes) -> bytes:
     """
     try:
         combined_decoded = deserialize_from_bytes(blob)
-        magic, ephemeral_pub_pem, iv, ciphertext = combined_decoded
+        magic, eph_pub_encoded, iv, ciphertext = combined_decoded
         if magic != "ec":
             raise ValueError("invalid magic, not 'ec'")
     except Exception as e:
         raise ValueError(f"Malformed EC ciphertext structure: {e}")
 
-    ephemeral_pub_key = serialization.load_pem_public_key(
-        ephemeral_pub_pem, backend=default_backend()
-    )
+    ephemeral_pub_key = load_public_key(eph_pub_encoded)
 
     shared_secret = private_key.exchange(ec.ECDH(), ephemeral_pub_key)
     aes_key = HKDF(
@@ -333,8 +374,8 @@ def encrypt_data(public_key_b64: str, plaintext: bytes) -> bytes:
     Returns Base64-encoded ciphertext.
     """
     try:
-        pub_pem = base64.b64decode(public_key_b64)
-        pub_key = serialization.load_pem_public_key(pub_pem, backend=default_backend())
+        pub_encoded = base64.b64decode(public_key_b64)
+        pub_key = load_public_key(pub_encoded)
     except Exception as e:
         raise ValueError(f"Failed to load public key: {e}")
 
@@ -358,9 +399,7 @@ def decrypt_data(private_key_b64: str, ciphertext: bytes) -> bytes:
     """
     try:
         priv_pem = base64.b64decode(private_key_b64)
-        priv_key = serialization.load_pem_private_key(
-            priv_pem, password=None, backend=default_backend()
-        )
+        priv_key = load_private_key(priv_pem)
     except Exception as e:
         raise ValueError(f"Failed to load private key: {e}")
 
@@ -406,16 +445,16 @@ def cli():
 def create_rsa(bits):
     """
     Generate an RSA key pair (default 2048 bits).
-    Print private & public keys in Base64-encoded PEM.
+    Print private & public keys in Base64-encoded DER.
     """
     priv, pub = generate_rsa_key_pair(bits)
-    priv_b64 = serialize_private_key_to_b64_pem(priv)
-    pub_b64 = serialize_public_key_to_b64_pem(pub)
+    priv_b64 = serialize_private_key_to_b64(priv)
+    pub_b64 = serialize_public_key_to_b64(pub)
 
     click.echo(f"=== RSA {bits}-BIT KEY PAIR ===\n")
-    click.echo("Private Key (Base64 PEM):\n")
+    click.echo("Private Key (Base64):\n")
     click.echo(priv_b64)
-    click.echo("\nPublic Key (Base64 PEM):\n")
+    click.echo("\nPublic Key (Base64):\n")
     click.echo(pub_b64)
 
 
@@ -426,16 +465,16 @@ def create_rsa(bits):
 def create_ec(curve):
     """
     Generate an EC key pair on the given curve (default SECP256R1 = 256 bits).
-    Print private & public keys in Base64-encoded PEM.
+    Print private & public keys in Base64-encoded DER.
     """
     priv, pub = generate_ec_key_pair(curve)
-    priv_b64 = serialize_private_key_to_b64_pem(priv)
-    pub_b64 = serialize_public_key_to_b64_pem(pub)
+    priv_b64 = serialize_private_key_to_b64(priv)
+    pub_b64 = serialize_public_key_to_b64(pub)
 
     click.echo(f"=== EC KEY PAIR on {curve} ===\n")
-    click.echo("Private Key (Base64 PEM):\n")
+    click.echo("Private Key (Base64):\n")
     click.echo(priv_b64)
-    click.echo("\nPublic Key (Base64 PEM):\n")
+    click.echo("\nPublic Key (Base64):\n")
     click.echo(pub_b64)
 
 
@@ -445,18 +484,18 @@ def create_ec(curve):
 def create_dsa(bits):
     """
     Generate a DSA key pair (default 2048 bits).
-    Print private & public keys in Base64-encoded PEM.
+    Print private & public keys in Base64-encoded DER.
 
     (Typically used for signatures; here we support ephemeral encryption for demo.)
     """
     priv, pub = generate_dsa_key_pair(bits)
-    priv_b64 = serialize_private_key_to_b64_pem(priv)
-    pub_b64 = serialize_public_key_to_b64_pem(pub)
+    priv_b64 = serialize_private_key_to_b64(priv)
+    pub_b64 = serialize_public_key_to_b64(pub)
 
     click.echo(f"=== DSA {bits}-BIT KEY PAIR ===\n")
-    click.echo("Private Key (Base64 PEM):\n")
+    click.echo("Private Key (Base64):\n")
     click.echo(priv_b64)
-    click.echo("\nPublic Key (Base64 PEM):\n")
+    click.echo("\nPublic Key (Base64):\n")
     click.echo(pub_b64)
 
 
